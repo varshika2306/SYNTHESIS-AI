@@ -1,0 +1,6 @@
+{
+  "name": "SYNTHESIS AI",
+  "description": "Digital DNA Intelligence Platform. Decode. Explain. Trust.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

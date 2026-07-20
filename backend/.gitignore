@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual Environment
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded files
+app/uploads/images/*
+app/uploads/heatmaps/*
+
+# Generated reports
+app/reports/*
+
+# Logs
+*.log
+
+# Model cache
+*.pth
