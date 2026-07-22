@@ -26,5 +26,8 @@ app/reports/*
 # Logs
 *.log
 
-# Model cache
+# Ignore other PyTorch files
 *.pth
+
+# But keep the production model
+!app/ml/best_model.pth
