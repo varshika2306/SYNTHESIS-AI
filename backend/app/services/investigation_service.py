@@ -8,7 +8,8 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.repositories.investigation_repository import InvestigationRepository
-from app.ml.predictor import predictor
+
+from app.ml.predictor import get_predictor
 
 
 UPLOAD_DIR = "app/uploads/images"
@@ -85,9 +86,10 @@ class InvestigationService:
 
             print("========== STEP 4 : Running Prediction ==========")
 
-            result = predictor.predict(
-                image_path
-            )
+            predictor = get_predictor()
+            result = predictor.predict(image_path)
+
+            
 
             print(result)
 
