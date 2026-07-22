@@ -1,5 +1,6 @@
 import os
 import shutil
+import traceback
 import uuid
 
 from fastapi import UploadFile
@@ -26,7 +27,7 @@ class InvestigationService:
         ".png"
     }
 
-    MAX_FILE_SIZE = 10 * 1024 * 1024   # 10 MB
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
     @staticmethod
     def upload_image(
@@ -35,93 +36,91 @@ class InvestigationService:
         image: UploadFile
     ):
 
-        # -------------------------
-        # Validate Extension
-        # -------------------------
+        try:
 
-        extension = os.path.splitext(
-            image.filename
-        )[1].lower()
+            print("========== STEP 1 : Validation ==========")
 
-        if extension not in InvestigationService.ALLOWED_EXTENSIONS:
+            extension = os.path.splitext(
+                image.filename
+            )[1].lower()
 
-            raise HTTPException(
-                status_code=400,
-                detail="Only JPG, JPEG and PNG images are allowed."
+            if extension not in InvestigationService.ALLOWED_EXTENSIONS:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Only JPG, JPEG and PNG images are allowed."
+                )
+
+            print("Extension:", extension)
+
+            print("========== STEP 2 : File Size ==========")
+
+            image.file.seek(0, 2)
+            file_size = image.file.tell()
+            image.file.seek(0)
+
+            print("File Size:", file_size)
+
+            if file_size > InvestigationService.MAX_FILE_SIZE:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Image size exceeds 10 MB."
+                )
+
+            print("========== STEP 3 : Saving Image ==========")
+
+            filename = f"{uuid.uuid4()}{extension}"
+
+            image_path = os.path.join(
+                UPLOAD_DIR,
+                filename
             )
 
-        # -------------------------
-        # Validate File Size
-        # -------------------------
+            with open(image_path, "wb") as buffer:
+                shutil.copyfileobj(
+                    image.file,
+                    buffer
+                )
 
-        image.file.seek(0, 2)
-        file_size = image.file.tell()
-        image.file.seek(0)
+            print("Saved:", image_path)
 
-        if file_size > InvestigationService.MAX_FILE_SIZE:
+            print("========== STEP 4 : Running Prediction ==========")
 
-            raise HTTPException(
-                status_code=400,
-                detail="Image size exceeds 10 MB."
+            result = predictor.predict(
+                image_path
             )
 
-        # -------------------------
-        # Unique Filename
-        # -------------------------
+            print(result)
 
-        filename = f"{uuid.uuid4()}{extension}"
+            print("========== STEP 5 : Saving Database ==========")
 
-        image_path = os.path.join(
-            UPLOAD_DIR,
-            filename
-        )
+            investigation = InvestigationRepository.create(
 
-        # -------------------------
-        # Save Image
-        # -------------------------
+                db=db,
 
-        with open(image_path, "wb") as buffer:
-            shutil.copyfileobj(
-                image.file,
-                buffer
+                user_id=user_id,
+
+                image_path=image_path,
+
+                prediction=result["prediction"],
+
+                confidence=result["confidence"],
+
+                explanation_path=result["heatmap"],
+
+                status="Completed"
             )
 
-        # -------------------------
-        # AI Prediction
-        # -------------------------
+            print("========== STEP 6 : SUCCESS ==========")
 
-        result = predictor.predict(
-            image_path
-        )
+            return investigation
 
-        prediction = result["prediction"]
+        except Exception:
 
-        confidence = result["confidence"]
+            print("========== ERROR ==========")
 
-        explanation_path = result["heatmap"]
+            traceback.print_exc()
 
-        # -------------------------
-        # Save Investigation
-        # -------------------------
-
-        investigation = InvestigationRepository.create(
-
-            db=db,
-
-            user_id=user_id,
-
-            image_path=image_path,
-
-            prediction=prediction,
-
-            confidence=confidence,
-
-            explanation_path=explanation_path,
-
-            status="Completed"
-        )
-
-        return investigation
+            raise
 
     @staticmethod
     def get_history(
