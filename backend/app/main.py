@@ -7,6 +7,13 @@ from app.api.investigation import router as investigation_router
 
 from app.core.exception_handler import register_exception_handlers
 
+# Database
+from app.database.database import Base, engine
+
+# Import models so SQLAlchemy registers the tables
+from app.models.user import User
+from app.models.investigation import Investigation
+
 
 app = FastAPI(
     title="Synthesis AI API",
@@ -16,10 +23,21 @@ app = FastAPI(
 
 
 # -----------------------------
+# Startup Event
+# Create database tables automatically
+# -----------------------------
+@app.on_event("startup")
+async def startup():
+
+    Base.metadata.create_all(bind=engine)
+
+    print("Database initialized successfully.")
+
+
+# -----------------------------
 # Global Exception Handler
 # -----------------------------
 register_exception_handlers(app)
-
 
 
 # -----------------------------
@@ -31,7 +49,6 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ],
@@ -43,7 +60,7 @@ app.add_middleware(
         "POST",
         "PUT",
         "DELETE",
-        "OPTIONS"
+        "OPTIONS",
     ],
 
     allow_headers=[
@@ -53,26 +70,20 @@ app.add_middleware(
 )
 
 
-
 # -----------------------------
 # Static Files
-# Uploads + GradCAM Heatmaps
 # -----------------------------
 app.mount(
     "/uploads",
     StaticFiles(directory="app/uploads"),
-    name="uploads"
+    name="uploads",
 )
-
 
 
 # -----------------------------
 # Authentication Routes
 # -----------------------------
-app.include_router(
-    auth_router
-)
-
+app.include_router(auth_router)
 
 
 # -----------------------------
@@ -80,9 +91,8 @@ app.include_router(
 # -----------------------------
 app.include_router(
     investigation_router,
-    prefix="/api/v1"
+    prefix="/api/v1",
 )
-
 
 
 # -----------------------------
@@ -94,5 +104,5 @@ def root():
     return {
         "project": "Synthesis AI",
         "status": "Backend Running",
-        "version": "1.0.0"
+        "version": "1.0.0",
     }
