@@ -33,10 +33,11 @@ class InvestigationService:
     ):
 
         try:
-
-            print("\n========== STEP 1 : VALIDATION ==========")
+            print("\n========== STEP 1 Validation ==========")
+            print("Uploaded filename:", image.filename)
 
             extension = os.path.splitext(image.filename)[1].lower()
+            print("Extension:", extension)
 
             if extension not in InvestigationService.ALLOWED_EXTENSIONS:
                 raise HTTPException(
@@ -44,12 +45,11 @@ class InvestigationService:
                     detail="Only JPG, JPEG and PNG are allowed."
                 )
 
+            print("\n========== STEP 2 File Size ==========")
             image.file.seek(0, os.SEEK_END)
             file_size = image.file.tell()
             image.file.seek(0)
-
-            print("Extension :", extension)
-            print("Size      :", file_size)
+            print("File size:", file_size)
 
             if file_size > InvestigationService.MAX_FILE_SIZE:
                 raise HTTPException(
@@ -57,10 +57,10 @@ class InvestigationService:
                     detail="Image exceeds 10MB."
                 )
 
-            print("\n========== STEP 2 : SAVE IMAGE ==========")
+            print("\n========== STEP 3 Save Image ==========")
+            os.makedirs(UPLOAD_DIR, exist_ok=True)
 
             filename = f"{uuid.uuid4()}{extension}"
-
             image_path = os.path.join(
                 UPLOAD_DIR,
                 filename
@@ -73,21 +73,23 @@ class InvestigationService:
                 )
 
             print("Saved to:", image_path)
+            print("User ID:", user_id)
 
-            print("\n========== STEP 3 : LOAD MODEL ==========")
-
+            print("\n========== STEP 4 Predictor Loading ==========")
             predictor = get_predictor()
-
             print("Predictor loaded successfully")
 
-            print("\n========== STEP 4 : RUN PREDICTION ==========")
-
+            print("\n========== STEP 5 Running Prediction ==========")
             result = predictor.predict(image_path)
+            print("Prediction result:", result.get("prediction"))
+            print("Confidence:", result.get("confidence"))
+            print("Heatmap path:", result.get("heatmap"))
 
-            print(result)
+            print("\n========== STEP 6 Prediction Finished ==========")
+            print("Image path:", image_path)
+            print("User ID:", user_id)
 
-            print("\n========== STEP 5 : SAVE DATABASE ==========")
-
+            print("\n========== STEP 7 Saving Database ==========")
             investigation = InvestigationRepository.create(
 
                 db=db,
@@ -106,25 +108,19 @@ class InvestigationService:
 
             )
 
-            print("\n========== SUCCESS ==========")
+            print("\n========== STEP 8 Success ==========")
+            print("Investigation saved for user:", user_id)
+            print("Investigation ID:", getattr(investigation, 'id', 'unknown'))
 
             return investigation
 
         except HTTPException:
             raise
 
-        except Exception as e:
-
+        except Exception:
             print("\n========== ERROR ==========")
-            print(type(e))
-            print(e)
-
             traceback.print_exc()
-
-            raise HTTPException(
-                status_code=500,
-                detail=str(e)
-            )
+            raise
 
     @staticmethod
     def get_history(
