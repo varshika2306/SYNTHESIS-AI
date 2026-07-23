@@ -1,4 +1,7 @@
 import os
+import traceback
+import uuid
+
 import torch
 from PIL import Image
 
@@ -15,7 +18,9 @@ class Predictor:
             "cuda" if torch.cuda.is_available() else "cpu"
         )
 
+        print("=" * 60)
         print("Loading AI model...")
+        print("Device:", self.device)
 
         self.model = create_model()
 
@@ -24,107 +29,170 @@ class Predictor:
             "best_model.pth"
         )
 
+        print("Model Path:", model_path)
+
         if not os.path.exists(model_path):
             raise FileNotFoundError(
                 f"Model not found: {model_path}"
             )
 
-        state_dict = torch.load(
-            model_path,
-            map_location=self.device,
-            weights_only=True
-        )
+        try:
 
-        self.model.load_state_dict(state_dict)
+            try:
+                state_dict = torch.load(
+                    model_path,
+                    map_location=self.device,
+                    weights_only=True
+                )
+            except TypeError:
+                state_dict = torch.load(
+                    model_path,
+                    map_location=self.device
+                )
 
-        self.model.to(self.device)
-        self.model.eval()
+            self.model.load_state_dict(state_dict)
+
+            self.model.to(self.device)
+            self.model.eval()
+
+            print("Model loaded successfully.")
+
+        except Exception:
+
+            print("MODEL LOAD FAILED")
+            traceback.print_exc()
+            raise
 
         self.classes = [
             "FAKE",
             "REAL"
         ]
 
-        self.gradcam = GradCAM(
-            self.model,
-            self.model.features[-1]
-        )
+        try:
 
-        print("Model loaded successfully.")
+            self.gradcam = GradCAM(
+                self.model,
+                self.model.features[-1]
+            )
+
+            print("GradCAM initialized.")
+
+        except Exception:
+
+            print("GradCAM initialization failed.")
+            traceback.print_exc()
+
+            self.gradcam = None
+
+        print("=" * 60)
 
     def predict(self, image_path: str):
 
-        original_image = Image.open(
-            image_path
-        ).convert("RGB")
+        try:
 
-        image_tensor = image_transform(
-            original_image
-        )
+            print("=" * 60)
+            print("Starting prediction")
+            print("Image:", image_path)
 
-        image_tensor = (
-            image_tensor
-            .unsqueeze(0)
-            .to(self.device)
-        )
+            image = Image.open(image_path).convert("RGB")
 
-        outputs = self.model(image_tensor)
+            tensor = image_transform(image)
 
-        probabilities = torch.softmax(
-            outputs,
-            dim=1
-        )
+            tensor = tensor.unsqueeze(0).to(self.device)
 
-        confidence, predicted = torch.max(
-            probabilities,
-            dim=1
-        )
+            outputs = self.model(tensor)
 
-        predicted_class = predicted.item()
+            probabilities = torch.softmax(
+                outputs,
+                dim=1
+            )
 
-        heatmap = self.gradcam.generate(
-            image_tensor,
-            predicted_class
-        )
+            confidence, predicted = torch.max(
+                probabilities,
+                dim=1
+            )
 
-        heatmap_folder = os.path.join(
-            "app",
-            "uploads",
-            "heatmaps"
-        )
+            predicted_class = predicted.item()
 
-        os.makedirs(
-            heatmap_folder,
-            exist_ok=True
-        )
+            heatmap_path = None
 
-        heatmap_path = os.path.join(
-            heatmap_folder,
-            "heatmap.jpg"
-        )
+            if self.gradcam is not None:
 
-        save_heatmap(
-            image_path,
-            heatmap,
-            heatmap_path
-        )
+                try:
 
-        return {
-            "prediction": self.classes[predicted_class],
-            "confidence": round(confidence.item() * 100, 2),
-            "probabilities": {
-                "FAKE": round(probabilities[0][0].item() * 100, 2),
-                "REAL": round(probabilities[0][1].item() * 100, 2),
-            },
-            "heatmap": heatmap_path,
-        }
+                    heatmap = self.gradcam.generate(
+                        tensor,
+                        predicted_class
+                    )
+
+                    folder = os.path.join(
+                        "app",
+                        "uploads",
+                        "heatmaps"
+                    )
+
+                    os.makedirs(
+                        folder,
+                        exist_ok=True
+                    )
+
+                    heatmap_path = os.path.join(
+                        folder,
+                        f"{uuid.uuid4()}.jpg"
+                    )
+
+                    save_heatmap(
+                        image_path,
+                        heatmap,
+                        heatmap_path
+                    )
+
+                    print("Heatmap saved:", heatmap_path)
+
+                except Exception:
+
+                    print("GradCAM generation failed")
+                    traceback.print_exc()
+
+                    heatmap_path = None
+
+            result = {
+                "prediction": self.classes[predicted_class],
+                "confidence": round(
+                    confidence.item() * 100,
+                    2
+                ),
+                "probabilities": {
+                    "FAKE": round(
+                        probabilities[0][0].item() * 100,
+                        2
+                    ),
+                    "REAL": round(
+                        probabilities[0][1].item() * 100,
+                        2
+                    ),
+                },
+                "heatmap": heatmap_path
+            }
+
+            print("Prediction Success")
+            print(result)
+
+            return result
+
+        except Exception:
+
+            print("=" * 60)
+            print("Prediction Failed")
+            traceback.print_exc()
+            raise
 
 
-# Lazy-loaded singleton
 _predictor = None
 
 
 def get_predictor():
+
     global _predictor
 
     if _predictor is None:

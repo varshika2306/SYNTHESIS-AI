@@ -3,21 +3,16 @@ import shutil
 import traceback
 import uuid
 
-from fastapi import UploadFile
-from fastapi import HTTPException
+from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
 
 from app.repositories.investigation_repository import InvestigationRepository
-
 from app.ml.predictor import get_predictor
 
 
 UPLOAD_DIR = "app/uploads/images"
 
-os.makedirs(
-    UPLOAD_DIR,
-    exist_ok=True
-)
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 class InvestigationService:
@@ -39,35 +34,30 @@ class InvestigationService:
 
         try:
 
-            print("========== STEP 1 : Validation ==========")
+            print("\n========== STEP 1 : VALIDATION ==========")
 
-            extension = os.path.splitext(
-                image.filename
-            )[1].lower()
+            extension = os.path.splitext(image.filename)[1].lower()
 
             if extension not in InvestigationService.ALLOWED_EXTENSIONS:
                 raise HTTPException(
                     status_code=400,
-                    detail="Only JPG, JPEG and PNG images are allowed."
+                    detail="Only JPG, JPEG and PNG are allowed."
                 )
 
-            print("Extension:", extension)
-
-            print("========== STEP 2 : File Size ==========")
-
-            image.file.seek(0, 2)
+            image.file.seek(0, os.SEEK_END)
             file_size = image.file.tell()
             image.file.seek(0)
 
-            print("File Size:", file_size)
+            print("Extension :", extension)
+            print("Size      :", file_size)
 
             if file_size > InvestigationService.MAX_FILE_SIZE:
                 raise HTTPException(
                     status_code=400,
-                    detail="Image size exceeds 10 MB."
+                    detail="Image exceeds 10MB."
                 )
 
-            print("========== STEP 3 : Saving Image ==========")
+            print("\n========== STEP 2 : SAVE IMAGE ==========")
 
             filename = f"{uuid.uuid4()}{extension}"
 
@@ -82,18 +72,21 @@ class InvestigationService:
                     buffer
                 )
 
-            print("Saved:", image_path)
+            print("Saved to:", image_path)
 
-            print("========== STEP 4 : Running Prediction ==========")
+            print("\n========== STEP 3 : LOAD MODEL ==========")
 
             predictor = get_predictor()
-            result = predictor.predict(image_path)
 
-            
+            print("Predictor loaded successfully")
+
+            print("\n========== STEP 4 : RUN PREDICTION ==========")
+
+            result = predictor.predict(image_path)
 
             print(result)
 
-            print("========== STEP 5 : Saving Database ==========")
+            print("\n========== STEP 5 : SAVE DATABASE ==========")
 
             investigation = InvestigationRepository.create(
 
@@ -110,19 +103,28 @@ class InvestigationService:
                 explanation_path=result["heatmap"],
 
                 status="Completed"
+
             )
 
-            print("========== STEP 6 : SUCCESS ==========")
+            print("\n========== SUCCESS ==========")
 
             return investigation
 
-        except Exception:
+        except HTTPException:
+            raise
 
-            print("========== ERROR ==========")
+        except Exception as e:
+
+            print("\n========== ERROR ==========")
+            print(type(e))
+            print(e)
 
             traceback.print_exc()
 
-            raise
+            raise HTTPException(
+                status_code=500,
+                detail=str(e)
+            )
 
     @staticmethod
     def get_history(
