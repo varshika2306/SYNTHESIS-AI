@@ -1,10 +1,9 @@
 """
 PDF generation service for TruthLens AI
-Generates a human-readable PDF report for an investigation using ReportLab
 """
+
 import os
 from datetime import datetime
-from typing import Any, Dict
 
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
@@ -13,291 +12,180 @@ from reportlab.pdfgen import canvas
 from app.services.report_service import ReportService
 
 
-REPORTS_DIR = os.path.join("app", "reports")
+REPORTS_DIR = "app/reports"
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 
 class PDFService:
 
     @staticmethod
-    def generate_pdf(investigation: Any, report: Dict | None = None) -> str:
-        """
-        Generate a PDF for the given investigation model instance.
+    def generate_pdf(investigation):
 
-        Returns the filesystem path to the generated PDF.
-        """
-
-        # Normalize investigation fields (works with SQLAlchemy model)
-        inv_id = getattr(investigation, "id", None)
-        prediction = getattr(investigation, "prediction", "N/A")
-        confidence = getattr(investigation, "confidence", None)
-        status = getattr(investigation, "status", "N/A")
-        created_at = getattr(investigation, "created_at", None)
-        explanation_path = getattr(investigation, "explanation_path", None)
-
-        if report is None:
-            report = ReportService.generate_report(prediction=prediction, confidence=confidence or 0)
-
-        timestamp = (
-            created_at.strftime("%Y-%m-%d %H:%M:%S")
-            if hasattr(created_at, "strftime")
-            else str(created_at)
+        report = ReportService.generate_report(
+            prediction=investigation.prediction,
+            confidence=investigation.confidence
         )
-
-        filename = f"investigation_{inv_id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.pdf"
-        out_path = os.path.join(REPORTS_DIR, filename)
-
-        c = canvas.Canvas(out_path, pagesize=letter)
-        width, height = letter
-
-        left = inch * 0.75
-        top = height - inch * 0.75
-
-        # Title
-        c.setFont("Helvetica-Bold", 18)
-        c.drawString(left, top, "TruthLens AI — Investigation Report")
-
-        c.setFont("Helvetica", 10)
-        y = top - 30
-
-        # Basic Info
-        c.drawString(left, y, f"Investigation ID: {inv_id}")
-        y -= 14
-        c.drawString(left, y, f"Prediction: {report.get('prediction', prediction)}")
-        y -= 14
-        c.drawString(left, y, f"Confidence: {report.get('confidence', confidence)}%")
-        y -= 14
-        c.drawString(left, y, f"Risk Level: {report.get('risk_level', 'N/A')}" )
-        y -= 14
-        c.drawString(left, y, f"Status: {status}")
-        y -= 14
-        c.drawString(left, y, f"Timestamp: {timestamp}")
-        y -= 22
-
-        # Findings / Summary
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(left, y, "Summary & Findings:")
-        y -= 16
-        c.setFont("Helvetica", 10)
-        summary = report.get("summary", "")
-        findings = report.get("findings", []) or []
-
-        # Wrap summary
-        textobject = c.beginText(left, y)
-        textobject.setFont("Helvetica", 10)
-        for line in str(summary).splitlines():
-            textobject.textLine(line)
-        c.drawText(textobject)
-
-        y = textobject.getY() - 8
-
-        for f in findings:
-            if y < inch:
-                c.showPage()
-                y = height - inch
-            c.drawString(left + 8, y, f"- {f}")
-            y -= 14
-
-        # Model Info
-        if y < inch * 2:
-            c.showPage()
-            y = height - inch
-
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(left, y, "Model Information")
-        y -= 18
-        c.setFont("Helvetica", 10)
-        c.drawString(left, y, "Model: CNN Detector")
-        y -= 12
-        c.drawString(left, y, "Framework: PyTorch")
-        y -= 12
-        c.drawString(left, y, "Dataset: CIFAKE")
-        y -= 20
-
-        # GradCAM image
-        if explanation_path:
-            # explanation_path may be a filesystem path already
-            img_path = explanation_path
-            if img_path and os.path.exists(img_path):
-                # Reserve space and draw image
-                try:
-                    max_w = width - left * 2
-                    max_h = 3 * inch
-                    # Draw image centered
-                    img_w = max_w
-                    img_h = max_h
-                    if y - img_h < inch:
-                        c.showPage()
-                        y = height - inch
-                    c.drawImage(img_path, left, y - img_h, width=img_w, height=img_h, preserveAspectRatio=True, anchor='n')
-                    y -= img_h + 12
-                except Exception:
-                    # ignore image embedding errors
-                    pass
-
-        c.showPage()
-        c.save()
-
-        return out_path
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
-    Image
-)
-
-from reportlab.lib.styles import getSampleStyleSheet
-import os
-
-
-
-class PDFService:
-
-
-    @staticmethod
-    def generate_report(
-        investigation
-    ):
-
-        pdf_dir = "app/reports"
-
-        os.makedirs(
-            pdf_dir,
-            exist_ok=True
-        )
-
 
         filename = (
-            f"investigation_{investigation.id}.pdf"
+            f"investigation_{investigation.id}_"
+            f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         )
 
-
         pdf_path = os.path.join(
-            pdf_dir,
+            REPORTS_DIR,
             filename
         )
 
-
-        document = SimpleDocTemplate(
+        c = canvas.Canvas(
             pdf_path,
             pagesize=letter
         )
 
+        width, height = letter
 
-        styles = getSampleStyleSheet()
+        y = height - 60
 
-        content = []
-
-
-        title = Paragraph(
-            "TruthLens AI - Digital Forensic Report",
-            styles["Title"]
+        c.setFont("Helvetica-Bold", 18)
+        c.drawString(
+            50,
+            y,
+            "TruthLens AI Investigation Report"
         )
 
-        content.append(title)
+        y -= 40
 
-        content.append(
-            Spacer(1,20)
+        c.setFont("Helvetica", 12)
+
+        c.drawString(
+            50,
+            y,
+            f"Investigation ID : {investigation.id}"
         )
 
+        y -= 20
 
-        details = [
+        c.drawString(
+            50,
+            y,
+            f"Prediction : {report['prediction']}"
+        )
 
-            f"Investigation ID: {investigation.id}",
+        y -= 20
 
-            f"Prediction: {investigation.prediction}",
+        c.drawString(
+            50,
+            y,
+            f"Confidence : {report['confidence']}%"
+        )
 
-            f"Confidence: {investigation.confidence}%",
+        y -= 20
 
-            f"Status: {investigation.status}",
+        c.drawString(
+            50,
+            y,
+            f"Risk Level : {report['risk_level']}"
+        )
 
-            f"Created At: {investigation.created_at}"
+        y -= 20
 
-        ]
+        c.drawString(
+            50,
+            y,
+            f"Status : {investigation.status}"
+        )
 
+        y -= 20
 
-        for item in details:
+        c.drawString(
+            50,
+            y,
+            f"Created : {investigation.created_at}"
+        )
 
-            content.append(
-                Paragraph(
-                    item,
-                    styles["Normal"]
-                )
+        y -= 35
+
+        c.setFont(
+            "Helvetica-Bold",
+            14
+        )
+
+        c.drawString(
+            50,
+            y,
+            "Summary"
+        )
+
+        y -= 20
+
+        c.setFont(
+            "Helvetica",
+            12
+        )
+
+        c.drawString(
+            50,
+            y,
+            report["summary"]
+        )
+
+        y -= 35
+
+        c.setFont(
+            "Helvetica-Bold",
+            14
+        )
+
+        c.drawString(
+            50,
+            y,
+            "Findings"
+        )
+
+        y -= 20
+
+        c.setFont(
+            "Helvetica",
+            12
+        )
+
+        for finding in report["findings"]:
+
+            c.drawString(
+                60,
+                y,
+                "• " + finding
             )
 
-            content.append(
-                Spacer(1,10)
-            )
+            y -= 18
 
+        if getattr(investigation, "explanation_path", None):
 
-        content.append(
-            Paragraph(
-                "AI Findings",
-                styles["Heading2"]
-            )
-        )
+            if os.path.exists(investigation.explanation_path):
 
+                y -= 20
 
-        findings = [
-
-            "Image artifact analysis completed",
-
-            "Synthetic texture consistency checked",
-
-            "Neural pattern evaluation completed",
-
-            "CNN classification performed"
-
-        ]
-
-
-        for f in findings:
-
-            content.append(
-                Paragraph(
-                    "✓ " + f,
-                    styles["Normal"]
-                )
-            )
-
-
-        content.append(
-            Spacer(1,20)
-        )
-
-
-        if investigation.explanation_path:
-
-            if os.path.exists(
-                investigation.explanation_path
-            ):
-
-                content.append(
-                    Paragraph(
-                        "Grad-CAM Explainability",
-                        styles["Heading2"]
-                    )
+                c.setFont(
+                    "Helvetica-Bold",
+                    14
                 )
 
-
-                content.append(
-                    Spacer(1,10)
+                c.drawString(
+                    50,
+                    y,
+                    "Grad-CAM Explanation"
                 )
 
+                y -= 220
 
-                content.append(
-                    Image(
-                        investigation.explanation_path,
-                        width=300,
-                        height=300
-                    )
+                c.drawImage(
+                    investigation.explanation_path,
+                    50,
+                    y,
+                    width=220,
+                    height=220,
+                    preserveAspectRatio=True
                 )
 
-
-        document.build(
-            content
-        )
-
+        c.save()
 
         return pdf_path

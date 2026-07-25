@@ -1,85 +1,55 @@
-from app.repositories.investigation_repository import InvestigationRepository
+"""
+Report generation service for TruthLens AI
+Generates a structured investigation report based on prediction results.
+"""
 
 
 class ReportService:
 
-
     @staticmethod
     def generate_report(
-        prediction:str,
-        confidence:float
-    ):
-
+        prediction: str,
+        confidence: float
+    ) -> dict:
 
         prediction = prediction.upper()
 
-
-
         if prediction == "REAL":
-
 
             risk_level = "LOW"
 
-
-            recommendation = (
+            summary = (
                 "The uploaded image appears authentic. "
                 "No strong evidence of AI-generated manipulation was detected."
             )
 
-
-            findings=[
-
+            findings = [
                 "Natural lighting detected",
-
                 "Consistent image textures",
-
                 "No abnormal visual artifacts",
-
                 "High confidence prediction"
-
             ]
-
-
 
         else:
 
+            risk_level = "HIGH"
 
-            risk_level="HIGH"
-
-
-            recommendation=(
-
+            summary = (
                 "The uploaded image is likely AI-generated. "
                 "Further verification is recommended."
-
             )
 
-
-
-            findings=[
-
+            findings = [
                 "Synthetic texture patterns detected",
-
                 "Possible AI-generated artifacts",
-
                 "Image inconsistencies observed",
-
                 "High confidence prediction"
-
             ]
 
-
-
         return {
-
-            "prediction":prediction,
-
-            "confidence":confidence,
-
-            "risk_level":risk_level,
-
-            "summary":recommendation,
-
-            "findings":findings
-
+            "prediction": prediction,
+            "confidence": round(float(confidence), 2),
+            "risk_level": risk_level,
+            "summary": summary,
+            "findings": findings
         }
