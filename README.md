@@ -236,17 +236,16 @@ npm run dev
 # 📷 Screenshots
 
 ## 🏠 Home Page
-![Home Page](screenshot/Dashboard.png)
+![Home Page](screenshot/Login.page.png)
 
 ---
 
 ## 🔍 Investigation Dashboard
-![Investigation Dashboard](screenshot/Login.page.png)
+![Investigation Dashboard](screenshot/Dashboard.png)
 
 ---
 
-## 📄 AI Investigation Report
-![AI Investigation Report](screenshot/digital_passport.png)
+
 
 # 🎯 Future Improvements
 
